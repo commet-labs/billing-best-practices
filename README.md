@@ -69,4 +69,4 @@ Open `SKILL.md` - it has a routing table that directs you to the right resource 
 
 ## License
 
-Apache-2.0
+MIT

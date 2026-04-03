@@ -1,7 +1,7 @@
 ---
 name: billing-best-practices
 description: Use when building SaaS billing features, handling failed payments, implementing proration, supporting multiple currencies, managing subscription lifecycle, setting up tax compliance, or designing invoicing flows. Contains patterns and best practices for production billing systems.
-license: Apache-2.0
+license: MIT
 metadata:
   author: commet
   version: "1.0.0"
