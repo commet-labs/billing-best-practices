@@ -1,0 +1,19 @@
+{
+  "schema": "1.0",
+  "featured": true,
+  "categories": ["billing", "saas", "payments", "subscriptions"],
+  "tags": [
+    "billing",
+    "subscriptions",
+    "payments",
+    "saas",
+    "proration",
+    "dunning",
+    "invoicing",
+    "tax",
+    "multi-currency",
+    "failed-payments",
+    "plan-changes",
+    "metered-billing"
+  ]
+}

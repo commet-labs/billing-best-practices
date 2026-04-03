@@ -1,0 +1,9 @@
+{
+  "name": "billing-best-practices",
+  "version": "1.0.0",
+  "description": "SaaS billing best practices. Patterns for subscription lifecycle, failed payments, proration, multi-currency, tax compliance, plan changes, invoicing, and launch checklists.",
+  "author": "Commet",
+  "license": "Apache-2.0",
+  "repository": "commet-labs/billing-best-practices",
+  "skills": ["skills/billing-best-practices"]
+}
