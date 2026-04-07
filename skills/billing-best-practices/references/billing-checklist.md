@@ -19,7 +19,7 @@ const commet = new Commet({ apiKey: "sk_test_..." });
 const customer = await commet.customers.create({
   name: "Test Customer",
   email: "test@example.com",
-  externalId: "test_user_001",
+  id: "test_user_001",
 });
 
 // Create a subscription
