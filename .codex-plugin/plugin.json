@@ -1,10 +1,15 @@
 {
   "name": "billing-best-practices",
-  "version": "1.0.0",
+  "displayName": "Billing Best Practices",
   "description": "SaaS billing best practices. Patterns for subscription lifecycle, failed payments, proration, multi-currency, tax compliance, plan changes, invoicing, and launch checklists.",
-  "author": "Commet",
+  "version": "1.0.0",
+  "skills": "./skills/",
+  "author": {
+    "name": "Commet",
+    "url": "https://commet.co"
+  },
+  "homepage": "https://commet.co",
+  "repository": "https://github.com/commet-labs/billing-best-practices",
   "license": "MIT",
-  "repository": "commet-labs/billing-best-practices",
-  "skills": ["skills/billing-best-practices"],
-  "mcpServers": {}
+  "keywords": ["billing", "subscriptions", "payments", "saas", "proration", "dunning", "invoicing", "tax", "multi-currency", "failed-payments"]
 }

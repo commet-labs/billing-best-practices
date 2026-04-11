@@ -1,19 +1,16 @@
 {
-  "schema": "1.0",
-  "featured": true,
-  "categories": ["billing", "saas", "payments", "subscriptions"],
-  "tags": [
-    "billing",
-    "subscriptions",
-    "payments",
-    "saas",
-    "proration",
-    "dunning",
-    "invoicing",
-    "tax",
-    "multi-currency",
-    "failed-payments",
-    "plan-changes",
-    "metered-billing"
+  "name": "billing-best-practices",
+  "metadata": {
+    "description": "SaaS billing best practices for Cursor"
+  },
+  "owner": {
+    "name": "Commet",
+    "email": "decker@commet.co"
+  },
+  "plugins": [
+    {
+      "name": "billing-best-practices",
+      "source": "./"
+    }
   ]
 }
