@@ -49,7 +49,11 @@ console.log(subscription.status); // "pending_payment" or "active" (free)
 
 ```typescript
 app.post("/webhooks/commet", async (req, res) => {
-  const event = commet.webhooks.verify(req.body, req.headers);
+  const event = commet.webhooks.verifyAndParse({
+    rawBody: req.body,
+    signature: req.headers["x-commet-signature"],
+    secret: process.env.COMMET_WEBHOOK_SECRET,
+  });
 
   // Return 200 immediately, process async
   res.status(200).send("ok");

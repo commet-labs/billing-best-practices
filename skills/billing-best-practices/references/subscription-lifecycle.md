@@ -116,7 +116,11 @@ Listen for state change events and update your app in real time. This is the mos
 ```typescript
 // In your webhook handler
 app.post("/webhooks/commet", async (req, res) => {
-  const event = commet.webhooks.verify(req.body, req.headers);
+  const event = commet.webhooks.verifyAndParse({
+    rawBody: req.body,
+    signature: req.headers["x-commet-signature"],
+    secret: process.env.COMMET_WEBHOOK_SECRET,
+  });
 
   switch (event.type) {
     case "subscription.activated":
@@ -144,7 +148,7 @@ If you can't use webhooks, check subscription state on each request. Cache the r
 
 ```typescript
 async function checkAccess(customerId: string): Promise<boolean> {
-  const subscription = await commet.subscriptions.getByCustomer(customerId);
+  const { data: subscription } = await commet.subscriptions.getActive({ customerId });
 
   if (!subscription) return false;
 
@@ -163,19 +167,21 @@ async function checkAccess(customerId: string): Promise<boolean> {
 Pausing stops billing and access. The customer's subscription is frozen -- no usage accumulates, no invoices are generated.
 
 ```typescript
-await commet.subscriptions.pause({
-  customerId: "cus_abc123",
+// Schedule cancellation at period end (equivalent to "pausing")
+await commet.subscriptions.cancel({
+  id: "sub_xxx",
   reason: "customer_request",
+  immediate: false, // cancels at period end
 });
 
-// Later...
-await commet.subscriptions.resume({
-  customerId: "cus_abc123",
+// Later, if customer changes their mind before period ends...
+await commet.subscriptions.uncancel({
+  id: "sub_xxx",
 });
-// Billing resumes, new period starts, pricing is whatever is current
+// Cancellation reversed, billing continues as normal
 ```
 
-Pausing does not freeze the price. When the customer resumes, they get the price in effect at that time.
+Cancellation at period end does not freeze the price. If the customer uncancels and later resubscribes, they get the price in effect at that time.
 
 ## Cancellation
 
@@ -185,8 +191,8 @@ Two modes:
 
 ```typescript
 await commet.subscriptions.cancel({
-  customerId: "cus_abc123",
-  mode: "immediate",
+  id: "sub_xxx",
+  immediate: true,
 });
 ```
 
@@ -194,8 +200,8 @@ await commet.subscriptions.cancel({
 
 ```typescript
 await commet.subscriptions.cancel({
-  customerId: "cus_abc123",
-  mode: "end_of_period",
+  id: "sub_xxx",
+  // immediate defaults to false -> cancels at period end
 });
 ```
 

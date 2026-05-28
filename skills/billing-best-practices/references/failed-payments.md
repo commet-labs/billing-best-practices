@@ -37,7 +37,11 @@ const commet = new Commet({ apiKey: "sk_live_..." });
 
 // Check subscription status after a payment failure event
 app.post("/webhooks/commet", async (req, res) => {
-  const event = commet.webhooks.verify(req.body, req.headers);
+  const event = commet.webhooks.verifyAndParse({
+    rawBody: req.body,
+    signature: req.headers["x-commet-signature"],
+    secret: process.env.COMMET_WEBHOOK_SECRET,
+  });
 
   switch (event.type) {
     case "payment.failed":
@@ -97,7 +101,7 @@ The grace period is the time between the first failure and cancellation. During 
 ```typescript
 // Show a banner for past_due customers
 async function getSubscriptionBanner(customerId: string) {
-  const subscription = await commet.subscriptions.getByCustomer(customerId);
+  const { data: subscription } = await commet.subscriptions.getActive({ customerId });
 
   if (subscription?.status === "past_due") {
     return {
@@ -147,7 +151,11 @@ The cheapest payment failure to recover is the one that never happens.
 ```typescript
 // Listen for upcoming card expirations
 app.post("/webhooks/commet", async (req, res) => {
-  const event = commet.webhooks.verify(req.body, req.headers);
+  const event = commet.webhooks.verifyAndParse({
+    rawBody: req.body,
+    signature: req.headers["x-commet-signature"],
+    secret: process.env.COMMET_WEBHOOK_SECRET,
+  });
 
   if (event.type === "payment_method.expiring") {
     await sendCardExpiryWarning(

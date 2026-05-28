@@ -122,9 +122,9 @@ Invoice includes: plan base (advance) + overage (true-up for previous period)
 // When credits reach 0: access blocked immediately
 // Customer can purchase credit packs to continue
 
-await commet.credits.purchase({
-  customerId: "cus_abc123",
-  packId: "pack_500_credits",
+await commet.subscriptions.purchaseCredits({
+  id: "sub_xxx",
+  credits: 500,
 });
 ```
 
