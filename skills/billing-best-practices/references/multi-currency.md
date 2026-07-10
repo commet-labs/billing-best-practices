@@ -23,22 +23,28 @@ Check: does this plan have a regional price for BRL?
 ```typescript
 import { Commet } from "@commet/node";
 
-const commet = new Commet({ apiKey: "sk_live_..." });
+const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
-// Create a plan with regional pricing
-const plan = await commet.plans.create({
+// Create a plan, add a price, then set regional overrides for it
+const { data: plan } = await commet.plans.create({
   name: "Pro",
-  prices: [
-    {
-      interval: "monthly",
-      amount: 9900, // $99.00 USD (base)
-      regionalPrices: [
-        { currency: "BRL", amount: 29900 },  // R$299.00
-        { currency: "EUR", amount: 8900 },   // 89.00 EUR
-        { currency: "MXN", amount: 149900 }, // $1,499.00 MXN
-        { currency: "ARS", amount: 4990000 }, // $49,900.00 ARS
-      ],
-    },
+  code: "pro",
+});
+
+const { data: price } = await commet.plans.addPrice({
+  id: plan.id,
+  billingInterval: "monthly",
+  price: 9900, // $99.00 USD (base)
+});
+
+await commet.plans.setRegionalPrices({
+  id: plan.id,
+  priceId: price.id,
+  overrides: [
+    { currency: "BRL", price: 29900 },  // R$299.00
+    { currency: "EUR", price: 8900 },   // 89.00 EUR
+    { currency: "MXN", price: 149900 }, // $1,499.00 MXN
+    { currency: "ARS", price: 4990000 }, // $49,900.00 ARS
   ],
 });
 ```
@@ -86,18 +92,13 @@ Most currencies use two decimal places ($99.99 = 9999 cents). Some don't use dec
 This matters for every calculation: proration, overage pricing, invoice totals. Your billing system must know which currencies are zero-decimal and handle them correctly. Failing to do this means charging 100x the intended amount (or 1/100th).
 
 ```typescript
-// The SDK handles zero-decimal currencies automatically
-// When you set a price of 50000 CLP, it means 50,000 CLP (not 500.00)
-const plan = await commet.plans.create({
-  name: "Starter",
-  prices: [
-    {
-      interval: "monthly",
-      amount: 2900, // $29.00 USD
-      regionalPrices: [
-        { currency: "CLP", amount: 19900 }, // 19,900 CLP (no decimals)
-      ],
-    },
+// Zero-decimal amounts are passed through as-is
+// When you set a price of 19900 CLP, it means 19,900 CLP (not 199.00)
+await commet.plans.setRegionalPrices({
+  id: plan.id,
+  priceId: price.id,
+  overrides: [
+    { currency: "CLP", price: 19900 }, // 19,900 CLP (no decimals)
   ],
 });
 ```

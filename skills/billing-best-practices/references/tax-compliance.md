@@ -59,11 +59,11 @@ Stripe Tax is the most common DIY approach for SaaS. It automatically calculates
 ```typescript
 import { Commet } from "@commet/node";
 
-const commet = new Commet({ apiKey: "sk_live_..." });
+const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
 // Tax is calculated automatically at checkout
 // based on the customer's billing address
-const subscription = await commet.subscriptions.create({
+const { data: subscription } = await commet.subscriptions.create({
   customerId: "cus_abc123",
   planId: "plan_pro_monthly",
   // Tax calculated from billing address country/state
@@ -120,14 +120,14 @@ When selling to a business customer in the EU (who provides a valid VAT ID), you
 
 ```typescript
 // When creating a customer with a VAT ID
-const customer = await commet.customers.create({
-  name: "Acme GmbH",
+const { data: customer } = await commet.customers.create({
+  fullName: "Acme GmbH",
   email: "billing@acme.de",
   address: {
     country: "DE",
     // ...
   },
-  taxId: "DE123456789",
+  taxDocument: "DE123456789",
 });
 
 // Invoices automatically apply reverse charge when VAT ID is valid

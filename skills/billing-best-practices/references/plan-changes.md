@@ -22,11 +22,15 @@ This is the fairest approach for both sides:
 ```typescript
 import { Commet } from "@commet/node";
 
-const commet = new Commet({ apiKey: "sk_live_..." });
+const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
+
+const { data: subscription } = await commet.subscriptions.getActive({
+  customerId: "cus_abc123",
+});
 
 await commet.subscriptions.changePlan({
-  customerId: "cus_abc123",
-  planId: "plan_pro_monthly",
+  id: subscription.id,
+  newPlanId: "plan_pro_monthly",
 });
 
 // Happens immediately:
@@ -55,9 +59,13 @@ await commet.subscriptions.changePlan({
 | At renewal | Switches to new plan with new price |
 
 ```typescript
-await commet.subscriptions.changePlan({
+const { data: subscription } = await commet.subscriptions.getActive({
   customerId: "cus_abc123",
-  planId: "plan_starter_monthly",
+});
+
+await commet.subscriptions.changePlan({
+  id: subscription.id,
+  newPlanId: "plan_starter_monthly",
 });
 
 // Nothing changes right now
@@ -87,9 +95,13 @@ Changing the billing interval (monthly to yearly, yearly to monthly) follows the
 
 ```typescript
 // Monthly to yearly -- applied immediately
-await commet.subscriptions.changePlan({
+const { data: subscription } = await commet.subscriptions.getActive({
   customerId: "cus_abc123",
-  planId: "plan_pro_yearly", // same plan, different interval
+});
+
+await commet.subscriptions.changePlan({
+  id: subscription.id,
+  newBillingInterval: "yearly", // same plan, different interval
 });
 
 // Customer gets credit for unused monthly period
@@ -151,11 +163,16 @@ app.post("/webhooks/commet", async (req, res) => {
     secret: process.env.COMMET_WEBHOOK_SECRET,
   });
 
-  switch (event.type) {
+  if (!event) {
+    res.status(400).send("invalid signature");
+    return;
+  }
+
+  switch (event.event) {
     case "subscription.plan_changed":
       await updateCustomerFeatures(
         event.data.customerId,
-        event.data.newPlanId
+        event.data.currentPlan.id
       );
       break;
 
@@ -163,7 +180,7 @@ app.post("/webhooks/commet", async (req, res) => {
       // Downgrade scheduled for end of period
       await showScheduledChangeNotice(
         event.data.customerId,
-        event.data.newPlanId,
+        event.data.scheduledPlan.id,
         event.data.effectiveAt
       );
       break;
