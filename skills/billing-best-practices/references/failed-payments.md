@@ -33,7 +33,7 @@ Space retries to account for common recovery patterns: bank holds clear within h
 ```typescript
 import { Commet } from "@commet/node";
 
-const commet = new Commet({ apiKey: "sk_live_..." });
+const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
 // Check subscription status after a payment failure event
 app.post("/webhooks/commet", async (req, res) => {
@@ -43,7 +43,12 @@ app.post("/webhooks/commet", async (req, res) => {
     secret: process.env.COMMET_WEBHOOK_SECRET,
   });
 
-  switch (event.type) {
+  if (!event) {
+    res.status(400).send("invalid signature");
+    return;
+  }
+
+  switch (event.event) {
     case "payment.failed":
       await notifyCustomerPaymentFailed(event.data.customerId);
       break;
@@ -52,10 +57,9 @@ app.post("/webhooks/commet", async (req, res) => {
       await clearPaymentWarning(event.data.customerId);
       break;
 
-    case "subscription.canceled":
-      if (event.data.reason === "payment_failed") {
-        await handleInvoluntaryChurn(event.data.customerId);
-      }
+    case "payment.retry_failed":
+      // All retries exhausted -- the subscription was canceled
+      await handleInvoluntaryChurn(event.data.customerId);
       break;
   }
 });
@@ -104,10 +108,14 @@ async function getSubscriptionBanner(customerId: string) {
   const { data: subscription } = await commet.subscriptions.getActive({ customerId });
 
   if (subscription?.status === "past_due") {
+    const { data: recovery } = await commet.subscriptions.createRecoveryLink({
+      id: subscription.id,
+    });
+
     return {
       type: "warning",
       message: "We couldn't process your payment. Please update your payment method.",
-      action: subscription.updatePaymentUrl,
+      action: recovery.url,
     };
   }
 
@@ -149,7 +157,7 @@ Beyond retry logic and emails, there are structural decisions that reduce involu
 The cheapest payment failure to recover is the one that never happens.
 
 ```typescript
-// Listen for upcoming card expirations
+// Capture card expiry from payment method events
 app.post("/webhooks/commet", async (req, res) => {
   const event = commet.webhooks.verifyAndParse({
     rawBody: req.body,
@@ -157,13 +165,24 @@ app.post("/webhooks/commet", async (req, res) => {
     secret: process.env.COMMET_WEBHOOK_SECRET,
   });
 
-  if (event.type === "payment_method.expiring") {
-    await sendCardExpiryWarning(
-      event.data.customerId,
-      event.data.expiresAt
-    );
+  if (!event) {
+    res.status(400).send("invalid signature");
+    return;
+  }
+
+  if (
+    event.event === "payment_method.attached" ||
+    event.event === "payment_method.updated"
+  ) {
+    const { customerId, card } = event.data;
+    if (card) {
+      await saveCardExpiry(customerId, card.expMonth, card.expYear);
+    }
   }
 });
+
+// Then, in a daily job, warn customers whose saved card
+// expires within the next 30 days
 ```
 
 ## Related

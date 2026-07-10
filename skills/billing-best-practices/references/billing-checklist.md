@@ -13,17 +13,17 @@ A pre-launch checklist for SaaS billing. Go through each section before acceptin
 ```typescript
 import { Commet } from "@commet/node";
 
-const commet = new Commet({ apiKey: "sk_test_..." });
+const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
 // Create a test customer
-const customer = await commet.customers.create({
-  name: "Test Customer",
+const { data: customer } = await commet.customers.create({
+  fullName: "Test Customer",
   email: "test@example.com",
-  id: "test_user_001",
+  externalId: "test_user_001",
 });
 
 // Create a subscription
-const subscription = await commet.subscriptions.create({
+const { data: subscription } = await commet.subscriptions.create({
   customerId: customer.id,
   planId: "plan_pro_monthly",
 });
@@ -54,6 +54,12 @@ app.post("/webhooks/commet", async (req, res) => {
     signature: req.headers["x-commet-signature"],
     secret: process.env.COMMET_WEBHOOK_SECRET,
   });
+
+  // Reject requests with invalid signatures
+  if (!event) {
+    res.status(400).send("invalid signature");
+    return;
+  }
 
   // Return 200 immediately, process async
   res.status(200).send("ok");
@@ -117,8 +123,8 @@ app.post("/webhooks/commet", async (req, res) => {
 // Test usage tracking
 await commet.usage.track({
   customerId: "cus_test",
-  featureId: "api_calls",
-  quantity: 1,
+  feature: "api_calls",
+  value: 1,
   idempotencyKey: "req_abc123",
 });
 ```

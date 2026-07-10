@@ -26,12 +26,16 @@ They pay: $84.50
 ```typescript
 import { Commet } from "@commet/node";
 
-const commet = new Commet({ apiKey: "sk_live_..." });
+const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
+
+const { data: subscription } = await commet.subscriptions.getActive({
+  customerId: "cus_abc123",
+});
 
 // Upgrades are applied immediately with automatic proration
 await commet.subscriptions.changePlan({
-  customerId: "cus_abc123",
-  planId: "plan_pro_monthly",
+  id: subscription.id,
+  newPlanId: "plan_pro_monthly",
 });
 
 // Prorated invoice is generated automatically
@@ -122,9 +126,13 @@ Downgrades take effect at the end of the current period. The customer already pa
 
 ```typescript
 // Downgrades are scheduled, not immediate
-await commet.subscriptions.changePlan({
+const { data: subscription } = await commet.subscriptions.getActive({
   customerId: "cus_abc123",
-  planId: "plan_starter_monthly",
+});
+
+await commet.subscriptions.changePlan({
+  id: subscription.id,
+  newPlanId: "plan_starter_monthly",
 });
 
 // Customer keeps Pro plan until current period ends

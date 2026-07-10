@@ -100,13 +100,13 @@ Seats are only billed on billing months (advance for the full interval).
 ```typescript
 import { Commet } from "@commet/node";
 
-const commet = new Commet({ apiKey: "sk_live_..." });
+const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
 // Track usage throughout the period
 await commet.usage.track({
   customerId: "cus_abc123",
-  featureId: "api_calls",
-  quantity: 1,
+  feature: "api_calls",
+  value: 1,
 });
 
 // At billing cycle: usage beyond included amount is charged
@@ -124,7 +124,7 @@ Invoice includes: plan base (advance) + overage (true-up for previous period)
 
 await commet.subscriptions.purchaseCredits({
   id: "sub_xxx",
-  credits: 500,
+  creditPackId: "cpk_xxx",
 });
 ```
 

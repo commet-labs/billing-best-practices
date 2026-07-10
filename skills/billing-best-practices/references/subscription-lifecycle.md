@@ -51,10 +51,10 @@ A customer can only have one active subscription at a time. States that block ne
 ```typescript
 import { Commet } from "@commet/node";
 
-const commet = new Commet({ apiKey: "sk_live_..." });
+const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
 // Create a subscription -- customer is redirected to checkout
-const subscription = await commet.subscriptions.create({
+const { data: subscription } = await commet.subscriptions.create({
   customerId: "cus_abc123",
   planId: "plan_pro_monthly",
 });
@@ -69,7 +69,7 @@ const subscription = await commet.subscriptions.create({
 Trials require a payment method upfront (collected via setup checkout) but don't charge until the trial ends.
 
 ```typescript
-const subscription = await commet.subscriptions.create({
+const { data: subscription } = await commet.subscriptions.create({
   customerId: "cus_abc123",
   planId: "plan_pro_monthly", // plan has trialDays: 14
 });
@@ -85,7 +85,7 @@ During the trial: full access, no charge, usage accumulates. If the first paymen
 ### Free Plan
 
 ```typescript
-const subscription = await commet.subscriptions.create({
+const { data: subscription } = await commet.subscriptions.create({
   customerId: "cus_abc123",
   planId: "plan_free",
 });
@@ -122,7 +122,12 @@ app.post("/webhooks/commet", async (req, res) => {
     secret: process.env.COMMET_WEBHOOK_SECRET,
   });
 
-  switch (event.type) {
+  if (!event) {
+    res.status(400).send("invalid signature");
+    return;
+  }
+
+  switch (event.event) {
     case "subscription.activated":
       await grantAccess(event.data.customerId);
       break;
@@ -135,7 +140,7 @@ app.post("/webhooks/commet", async (req, res) => {
       await revokeAccess(event.data.customerId);
       break;
 
-    case "subscription.trial_ending":
+    case "trial.will_end":
       await sendTrialEndingEmail(event.data.customerId);
       break;
   }
