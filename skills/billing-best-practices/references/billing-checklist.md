@@ -6,7 +6,7 @@ A pre-launch checklist for SaaS billing. Go through each section before acceptin
 
 - [ ] **Create a test subscription end-to-end.** Customer creation, plan selection, checkout, payment, active subscription. Verify every step.
 - [ ] **Test each plan.** Free, paid monthly, paid yearly, trial. Each path has different logic.
-- [ ] **Test with real card numbers.** Use Stripe test cards (4242... for success, 4000... for decline). Don't skip this.
+- [ ] **Test success and decline payment methods.** Use the sandbox credentials documented for the provider configured on the organization.
 - [ ] **Verify invoice generation.** After a billing cycle, check that invoices contain the correct line items, amounts, and tax.
 - [ ] **Test the full billing cycle.** Advance the clock in test mode and verify that recurring invoices are generated correctly.
 
@@ -16,16 +16,16 @@ import { Commet } from "@commet/node";
 const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
 // Create a test customer
-const { data: customer } = await commet.customers.create({
+const customer = await commet.customers.create({
   fullName: "Test Customer",
   email: "test@example.com",
   externalId: "test_user_001",
 });
 
 // Create a subscription
-const { data: subscription } = await commet.subscriptions.create({
+const subscription = await commet.subscriptions.create({
   customerId: customer.id,
-  planId: "plan_pro_monthly",
+  planId: "pln_pro",
 });
 
 // Verify the subscription is in the expected state
@@ -90,7 +90,7 @@ app.post("/webhooks/commet", async (req, res) => {
 ## Tax Setup
 
 - [ ] **Tax registrations are configured.** You must register in each jurisdiction where you have nexus before collecting tax.
-- [ ] **Product tax code is correct.** SaaS typically uses `txcd_10103001` in Stripe.
+- [ ] **Product tax category is correct.** Verify it against the tax system or Merchant of Record actually responsible for calculation.
 - [ ] **Tax appears on test invoices.** Create a test subscription with a taxable address and verify tax is calculated.
 - [ ] **Tax-exempt customers handled.** If you have B2B customers, verify VAT ID validation and reverse charge invoicing.
 - [ ] **Refund reverses tax.** When you refund a payment, verify that the tax amount is also reversed.
@@ -123,10 +123,10 @@ app.post("/webhooks/commet", async (req, res) => {
 // Test usage tracking
 await commet.usage.track({
   customerId: "cus_test",
-  feature: "api_calls",
+  featureCode: "api_calls",
   value: 1,
-  idempotencyKey: "req_abc123",
-});
+  eventId: "usage_abc123",
+}, { idempotencyKey: "req_abc123" });
 ```
 
 ## Credits and Balance (If Applicable)
@@ -142,7 +142,7 @@ await commet.usage.track({
 - [ ] **Billing cron is running.** Verify it executes on schedule.
 - [ ] **Failed payment alerts are configured.** You should know when a payment fails, not just the customer.
 - [ ] **Invoice generation errors are monitored.** A billing cycle that fails silently is worse than one that fails loudly.
-- [ ] **Revenue dashboard shows correct numbers.** Verify totals match what Stripe shows.
+- [ ] **Revenue dashboard shows correct numbers.** Reconcile totals with the configured provider backends and invoices.
 
 ## Before You Go Live
 

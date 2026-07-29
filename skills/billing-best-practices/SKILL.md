@@ -7,15 +7,6 @@ metadata:
   version: "1.0.0"
   homepage: https://commet.co
   source: https://github.com/commet-labs/billing-best-practices
-references:
-  - references/subscription-lifecycle.md
-  - references/failed-payments.md
-  - references/proration.md
-  - references/multi-currency.md
-  - references/tax-compliance.md
-  - references/plan-changes.md
-  - references/invoicing.md
-  - references/billing-checklist.md
 ---
 
 # Billing Best Practices

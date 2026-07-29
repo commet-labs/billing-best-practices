@@ -26,9 +26,10 @@ Space retries to account for common recovery patterns: bank holds clear within h
 
 | Attempt | Timing | Why |
 |---------|--------|-----|
-| 1st retry | Same day (hours later) | Bank holds, temporary declines |
-| 2nd retry | Same day (end of day) | Daily limit resets |
-| Final | If not recovered | Subscription canceled |
+| 1st retry | Day 1 after the original decline | First recovery attempt |
+| 2nd retry | Day 3 | Give the customer time to update payment |
+| 3rd retry | Day 5 | Continue the recovery window |
+| Final retry | Day 7 | A decline exhausts dunning and cancels |
 
 ```typescript
 import { Commet } from "@commet/node";
@@ -105,10 +106,10 @@ The grace period is the time between the first failure and cancellation. During 
 ```typescript
 // Show a banner for past_due customers
 async function getSubscriptionBanner(customerId: string) {
-  const { data: subscription } = await commet.subscriptions.getActive({ customerId });
+  const subscription = await commet.subscriptions.getActive({ customerId });
 
   if (subscription?.status === "past_due") {
-    const { data: recovery } = await commet.subscriptions.createRecoveryLink({
+    const recovery = await commet.subscriptions.createRecoveryLink({
       id: subscription.id,
     });
 
@@ -127,11 +128,9 @@ async function getSubscriptionBanner(customerId: string) {
 
 | Consumption Model | During Grace Period | After Cancellation |
 |-------------------|--------------------|--------------------|
-| Metered | Usage continues to accumulate | Usage stops |
-| Credits | Plan + purchased credits maintained | Plan credits = 0, purchased credits preserved |
-| Balance | Balance maintained | Balance = 0 |
-
-Purchased credits survive cancellation. When a customer reactivates, their purchased credits are restored.
+| Metered | Usage continues to accumulate | Access ends |
+| Credits | Plan + purchased credits remain available | No cancellation-specific balance reset |
+| Balance | Balance remains available | No cancellation-specific balance reset |
 
 ## Involuntary Churn Prevention
 
@@ -139,7 +138,7 @@ Beyond retry logic and emails, there are structural decisions that reduce involu
 
 **Before the failure:**
 - Send "card expiring soon" emails 30 days before expiration
-- Support card updater services (Stripe does this automatically)
+- Use payment-method update and recovery capabilities exposed by the active provider
 - Accept multiple payment methods
 
 **During the failure:**

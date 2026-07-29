@@ -26,8 +26,7 @@ Every subscription moves through a set of states. Understanding these transition
    active ◄──────────┘
      │
      ├── payment fails ──► past_due ──► canceled (retries exhausted)
-     ├── customer cancels ──► canceled
-     └── paused ──► resumed ──► active
+     └── customer cancels ──► canceled
 ```
 
 | State | Access | Billing | Transitions To |
@@ -35,14 +34,13 @@ Every subscription moves through a set of states. Understanding these transition
 | `draft` | No | None | `pending_payment` |
 | `pending_payment` | No | Awaiting payment | `trialing`, `active` |
 | `trialing` | Yes | No charge (usage accumulates) | `active`, `canceled` |
-| `active` | Yes | Normal billing | `past_due`, `paused`, `canceled` |
+| `active` | Yes | Normal billing | `past_due`, `canceled` |
 | `past_due` | Yes (grace period) | Retrying payment | `active`, `canceled` |
-| `paused` | No | Skipped | `active` |
 | `canceled` | No | None | New subscription only |
 
 ## One Active Subscription Per Customer
 
-A customer can only have one active subscription at a time. States that block new subscription creation: `draft`, `pending_payment`, `trialing`, `active`, `paused`, `past_due`. Only `canceled` and `expired` allow a new subscription.
+A customer can only have one active subscription at a time. Treat a `409` from subscription creation as the authoritative conflict instead of reproducing a second state machine in application code.
 
 ## Creation Flows
 
@@ -54,9 +52,9 @@ import { Commet } from "@commet/node";
 const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
 // Create a subscription -- customer is redirected to checkout
-const { data: subscription } = await commet.subscriptions.create({
+const subscription = await commet.subscriptions.create({
   customerId: "cus_abc123",
-  planId: "plan_pro_monthly",
+  planId: "pln_pro",
 });
 
 // Status: pending_payment
@@ -69,25 +67,25 @@ const { data: subscription } = await commet.subscriptions.create({
 Trials require a payment method upfront (collected via setup checkout) but don't charge until the trial ends.
 
 ```typescript
-const { data: subscription } = await commet.subscriptions.create({
+const subscription = await commet.subscriptions.create({
   customerId: "cus_abc123",
-  planId: "plan_pro_monthly", // plan has trialDays: 14
+  planId: "pln_pro", // plan has trialDays: 14
 });
 
 // Status: pending_payment
 // Customer completes setup checkout (card saved, no charge)
-// Status: trialing, trialEndsAt set to 14 days from now (midnight UTC)
+// Status: trialing, trialEndsAt set to 14 days from activation
 // Trial expires --> billing engine charges first invoice --> status: active
 ```
 
-During the trial: full access, no charge, usage accumulates. If the first payment fails when the trial ends, the subscription moves to `past_due` and follows the normal retry flow.
+During the trial: full access, no charge, usage accumulates. At the first paid invoice, a retryable provider decline moves the subscription to `past_due`; a missing payment method or customer-action-required outcome leaves it in `pending_payment` until checkout is completed.
 
 ### Free Plan
 
 ```typescript
-const { data: subscription } = await commet.subscriptions.create({
+const subscription = await commet.subscriptions.create({
   customerId: "cus_abc123",
-  planId: "plan_free",
+  planId: "pln_free",
 });
 
 // Status: active immediately
@@ -109,7 +107,9 @@ Every paid subscription tracks its billing cycle:
 
 ## Checking Subscription State
 
-### Webhooks (Recommended)
+### Query state for access
+
+Query current state when making an access decision. Webhooks are useful for background reactions such as email or provisioning, but a copied local webhook state is not the billing source of truth.
 
 Listen for state change events and update your app in real time. This is the most reliable approach -- you never miss a transition.
 
@@ -147,13 +147,9 @@ app.post("/webhooks/commet", async (req, res) => {
 });
 ```
 
-### Polling (Fallback)
-
-If you can't use webhooks, check subscription state on each request. Cache the result to avoid excessive API calls.
-
 ```typescript
 async function checkAccess(customerId: string): Promise<boolean> {
-  const { data: subscription } = await commet.subscriptions.getActive({ customerId });
+  const subscription = await commet.subscriptions.getActive({ customerId });
 
   if (!subscription) return false;
 
@@ -167,12 +163,10 @@ async function checkAccess(customerId: string): Promise<boolean> {
 
 **Why `past_due` grants access:** The customer is in a grace period while payment is retried. Cutting them off immediately increases churn -- most failed payments are recovered automatically.
 
-## Pause and Resume
-
-Pausing stops billing and access. The customer's subscription is frozen -- no usage accumulates, no invoices are generated.
+## Scheduled cancellation and reversal
 
 ```typescript
-// Schedule cancellation at period end (equivalent to "pausing")
+// Schedule cancellation at period end
 await commet.subscriptions.cancel({
   id: "sub_xxx",
   reason: "customer_request",
@@ -186,13 +180,13 @@ await commet.subscriptions.uncancel({
 // Cancellation reversed, billing continues as normal
 ```
 
-Cancellation at period end does not freeze the price. If the customer uncancels and later resubscribes, they get the price in effect at that time.
+Commet does not expose a pause/resume lifecycle. Do not present scheduled cancellation as a pause.
 
 ## Cancellation
 
 Two modes:
 
-**Immediate** -- access ends now, unused portion may be credited.
+**Immediate** -- access ends now.
 
 ```typescript
 await commet.subscriptions.cancel({
@@ -212,14 +206,14 @@ await commet.subscriptions.cancel({
 
 ## Reactivation
 
-A canceled customer can subscribe again, but it creates a new subscription. No intro offers (they had a subscription before). Deprecated plans cannot be re-subscribed.
+A canceled subscription can be reactivated through `subscriptions.reactivate()`. Commet charges first and restores state only after payment succeeds.
 
 ## Key Principles
 
 1. **Grant access on `active`, `trialing`, and `past_due`.** Don't cut off customers during grace periods.
-2. **Use webhooks over polling.** State changes happen asynchronously (retries, trial expiry, billing cron). Polling can miss transitions or introduce delays.
+2. **Query current state for access.** Use webhooks for background reactions.
 3. **Currency is immutable after first payment.** Auto-detected from billing address at checkout. Plan accordingly.
-4. **Trials expire at midnight UTC.** The billing engine has a separate query for expired trials independent of the normal billing day check.
+4. **Trial conversion uses the exact trial-end instant.**
 
 ## Related
 

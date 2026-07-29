@@ -4,13 +4,9 @@ Customers change plans. Upgrades, downgrades, interval changes -- each has diffe
 
 ## The Core Rule
 
-**More expensive = immediate. Less expensive = end of period.**
+Define upgrade and downgrade direction in the catalog. In Commet, plan groups use `sortOrder`; price is not the classifier. Interval direction and paid/free transitions have their own explicit rules.
 
-This is the fairest approach for both sides:
-- Upgrades are immediate because the customer wants more value now and is willing to pay for it
-- Downgrades wait because the customer already paid for the current period and should enjoy it
-
-## Upgrades (More Expensive Plan)
+## Upgrades (Higher-Ordered Plan)
 
 | Aspect | Behavior |
 |--------|----------|
@@ -24,13 +20,13 @@ import { Commet } from "@commet/node";
 
 const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
-const { data: subscription } = await commet.subscriptions.getActive({
+const subscription = await commet.subscriptions.getActive({
   customerId: "cus_abc123",
 });
 
 await commet.subscriptions.changePlan({
   id: subscription.id,
-  newPlanId: "plan_pro_monthly",
+  newPlanId: "pln_pro",
 });
 
 // Happens immediately:
@@ -49,7 +45,7 @@ await commet.subscriptions.changePlan({
 | Balance | Balance reset to new plan's included balance. |
 | Seats | New included count applies. Extra seats recalculated. |
 
-## Downgrades (Cheaper Plan)
+## Downgrades (Lower-Ordered Plan)
 
 | Aspect | Behavior |
 |--------|----------|
@@ -59,13 +55,13 @@ await commet.subscriptions.changePlan({
 | At renewal | Switches to new plan with new price |
 
 ```typescript
-const { data: subscription } = await commet.subscriptions.getActive({
+const subscription = await commet.subscriptions.getActive({
   customerId: "cus_abc123",
 });
 
 await commet.subscriptions.changePlan({
   id: subscription.id,
-  newPlanId: "plan_starter_monthly",
+  newPlanId: "pln_starter",
 });
 
 // Nothing changes right now
@@ -86,7 +82,7 @@ If the customer's current usage would exceed the new plan's included amount, sho
 
 ## Billing Interval Changes
 
-Changing the billing interval (monthly to yearly, yearly to monthly) follows the same logic as plan changes:
+Changing the billing interval uses the order weekly, monthly, quarterly, yearly:
 
 | Change | Behavior | Reason |
 |--------|----------|--------|
@@ -95,7 +91,7 @@ Changing the billing interval (monthly to yearly, yearly to monthly) follows the
 
 ```typescript
 // Monthly to yearly -- applied immediately
-const { data: subscription } = await commet.subscriptions.getActive({
+const subscription = await commet.subscriptions.getActive({
   customerId: "cus_abc123",
 });
 
@@ -112,18 +108,18 @@ await commet.subscriptions.changePlan({
 
 ### Upgrade + Interval Change
 
-If a customer upgrades their plan AND changes from monthly to yearly in the same action, it's treated as an upgrade (more expensive = immediate).
+Interval direction is evaluated before plan-group order. A move to a longer interval is immediate even when the target plan has a lower order.
 
 ### Downgrade + Interval Change
 
-If a customer downgrades AND changes interval, it's treated as a downgrade (cheaper = end of period).
+A move to a shorter interval is scheduled even when the target plan has a higher order. When the interval does not change, plan-group order decides.
 
 ## Intro Offers and Plan Changes
 
 Intro offers (discounted first N months) are lost when the customer changes plans. The new plan starts at its regular price, even if the customer hadn't finished their intro offer period.
 
 - Proration credit is based on what they actually paid (the intro price), not the list price
-- One intro offer per customer lifetime -- no second chances on a new plan
+- Automatic Introductory Offer eligibility is evaluated at creation; an active or past-due subscription in the organization disqualifies it
 
 ## Edge Cases
 
@@ -145,7 +141,7 @@ If a customer upgrades and then immediately requests a downgrade, the downgrade 
 
 ### Reactivation After Cancellation
 
-A canceled customer creates a new subscription, not a plan change. No intro offers (they had a subscription before). Deprecated plans cannot be re-subscribed.
+A canceled subscription can be reactivated through the reactivation operation. Reactivation charges first and restores state only after payment succeeds.
 
 ## Consumption Model Changes
 

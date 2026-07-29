@@ -26,9 +26,9 @@ Monthly invoice for Pro plan at $99/mo:
   Addon (Priority Support):                          $29.00
   ─────────────────────────────────────────────────────────
   Subtotal:                                         $198.00
-  Promo code (SAVE20 - 20% off):                    -$39.60
+  Promo code (SAVE20 - 20% of plan base):           -$19.80
   ─────────────────────────────────────────────────────────
-  Total:                                            $158.40
+  Total:                                            $178.20
 ```
 
 ## Advance vs True-Up Charges
@@ -54,8 +54,7 @@ This means a recurring invoice can contain charges for two different periods:
 | `feature_seats` | Seat charges (advance or true-up) |
 | `addon_base` | Addon recurring charge |
 | `balance_overage` | Overage when balance model allows going negative |
-| `discount` | Intro offer discount |
-| `promo_code_discount` | Promo code discount |
+| `discount` | Active Offer or promo-code discount |
 | `credit` | Customer credit applied to reduce total |
 
 ## Billing Cycles
@@ -105,7 +104,7 @@ const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 // Track usage throughout the period
 await commet.usage.track({
   customerId: "cus_abc123",
-  feature: "api_calls",
+  featureCode: "api_calls",
   value: 1,
 });
 
@@ -169,7 +168,7 @@ Plan change from Starter to Pro on January 15:
 
 ## Currency on Invoices
 
-All line amounts are in the subscription's currency. If the customer pays in BRL, every line item, subtotal, and total is in BRL. The billing system tracks both the presentment amount (what the customer paid) and the USD settlement amount (what Stripe deposited) separately.
+All line amounts are in the subscription's currency. If the customer pays in BRL, every line item, subtotal, and total is in BRL. Provider settlement data is read separately and may be unavailable for a specific provider or failed charge.
 
 ## Related
 

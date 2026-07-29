@@ -28,14 +28,14 @@ import { Commet } from "@commet/node";
 
 const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
-const { data: subscription } = await commet.subscriptions.getActive({
+const subscription = await commet.subscriptions.getActive({
   customerId: "cus_abc123",
 });
 
 // Upgrades are applied immediately with automatic proration
 await commet.subscriptions.changePlan({
   id: subscription.id,
-  newPlanId: "plan_pro_monthly",
+  newPlanId: "pln_pro",
 });
 
 // Prorated invoice is generated automatically
@@ -126,13 +126,13 @@ Downgrades take effect at the end of the current period. The customer already pa
 
 ```typescript
 // Downgrades are scheduled, not immediate
-const { data: subscription } = await commet.subscriptions.getActive({
+const subscription = await commet.subscriptions.getActive({
   customerId: "cus_abc123",
 });
 
 await commet.subscriptions.changePlan({
   id: subscription.id,
-  newPlanId: "plan_starter_monthly",
+  newPlanId: "pln_starter",
 });
 
 // Customer keeps Pro plan until current period ends

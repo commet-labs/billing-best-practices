@@ -26,12 +26,12 @@ import { Commet } from "@commet/node";
 const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
 // Create a plan, add a price, then set regional overrides for it
-const { data: plan } = await commet.plans.create({
+const plan = await commet.plans.create({
   name: "Pro",
   code: "pro",
 });
 
-const { data: price } = await commet.plans.addPrice({
+const price = await commet.plans.addPrice({
   id: plan.id,
   billingInterval: "monthly",
   price: 9900, // $99.00 USD (base)
@@ -41,10 +41,10 @@ await commet.plans.setRegionalPrices({
   id: plan.id,
   priceId: price.id,
   overrides: [
-    { currency: "BRL", price: 29900 },  // R$299.00
-    { currency: "EUR", price: 8900 },   // 89.00 EUR
-    { currency: "MXN", price: 149900 }, // $1,499.00 MXN
-    { currency: "ARS", price: 4990000 }, // $49,900.00 ARS
+    { currency: "brl", price: 29900 },  // R$299.00
+    { currency: "eur", price: 8900 },   // 89.00 EUR
+    { currency: "mxn", price: 149900 }, // $1,499.00 MXN
+    { currency: "ars", price: 4990000 }, // $49,900.00 ARS
   ],
 });
 ```
@@ -98,7 +98,7 @@ await commet.plans.setRegionalPrices({
   id: plan.id,
   priceId: price.id,
   overrides: [
-    { currency: "CLP", price: 19900 }, // 19,900 CLP (no decimals)
+    { currency: "clp", price: 19900 }, // 19,900 CLP (no decimals)
   ],
 });
 ```
@@ -139,14 +139,14 @@ Don't dynamically convert USD to local currencies using exchange rates. Instead,
 
 ## Non-USD Payment Processing
 
-When a customer pays in a non-USD currency, the payment processor (Stripe) settles in USD. The billing system tracks both:
+When a customer pays in a non-USD currency, Commet records the presentment amount and reads settlement data from the provider backend when that provider exposes it:
 
 | Amount | What It Represents |
 |--------|--------------------|
 | `presentmentAmount` | What the customer paid in their currency |
-| `grossAmount` | USD settlement amount from Stripe |
+| `grossAmount` | Provider-reported USD settlement amount, nullable when unavailable |
 
-Fees are always calculated on the USD gross amount, never on the presentment amount. This prevents exchange rate fluctuations from affecting your fee calculations.
+Provider fees, settlement, and net values remain provider-owned. Do not synthesize a missing USD amount from the presentment amount.
 
 ## Fallback Behavior
 
