@@ -4,28 +4,41 @@ Selling globally means charging customers in their local currency. This isn't ju
 
 ## How Currency Detection Works
 
-Currency is determined automatically at checkout based on the customer's billing address country. The flow:
+Presentment pricing is resolved from the checkout request country. The flow:
 
 ```
-Customer enters billing address
+Checkout request arrives
   |
   v
-Country detected (e.g., Brazil)
+Country resolved (e.g., Brazil)
   |
   v
-Check: does this plan have a regional price for BRL?
+Check: does the selected price have an override for Brazil's Market?
   |
   +--> Yes --> Charge in BRL at the configured price
   |
   +--> No --> Charge in USD at the base price
 ```
 
+In Commet Sandbox, the public **Country** control overrides request-country resolution so you can test another Market. Live checkout ignores that override. Billing address remains relevant to tax and payment processing, but it is not the Market selector.
+
 ```typescript
 import { Commet } from "@commet/node";
 
 const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
-// Create a plan, add a price, then set regional overrides for it
+// Create reusable country Markets first
+const brazil = await commet.markets.create({
+  name: "Brazil",
+  countryCodes: ["BR"],
+});
+
+const argentina = await commet.markets.create({
+  name: "Argentina",
+  countryCodes: ["AR"],
+});
+
+// Create a plan, then add a base price with explicit Market overrides
 const plan = await commet.plans.create({
   name: "Pro",
   code: "pro",
@@ -35,16 +48,9 @@ const price = await commet.plans.addPrice({
   id: plan.id,
   billingInterval: "monthly",
   price: 9900, // $99.00 USD (base)
-});
-
-await commet.plans.setRegionalPrices({
-  id: plan.id,
-  priceId: price.id,
-  overrides: [
-    { currency: "brl", price: 29900 },  // R$299.00
-    { currency: "eur", price: 8900 },   // 89.00 EUR
-    { currency: "mxn", price: 149900 }, // $1,499.00 MXN
-    { currency: "ars", price: 4990000 }, // $49,900.00 ARS
+  marketPrices: [
+    { marketGroupId: brazil.id, currency: "brl", price: 29900 },
+    { marketGroupId: argentina.id, currency: "ars", price: 4990000 },
   ],
 });
 ```
@@ -92,13 +98,19 @@ Most currencies use two decimal places ($99.99 = 9999 cents). Some don't use dec
 This matters for every calculation: proration, overage pricing, invoice totals. Your billing system must know which currencies are zero-decimal and handle them correctly. Failing to do this means charging 100x the intended amount (or 1/100th).
 
 ```typescript
-// Zero-decimal amounts are passed through as-is
-// When you set a price of 19900 CLP, it means 19,900 CLP (not 199.00)
-await commet.plans.setRegionalPrices({
+// Zero-decimal amounts are passed through as-is.
+// 19900 CLP means 19,900 CLP, not 199.00.
+const chile = await commet.markets.create({
+  name: "Chile",
+  countryCodes: ["CL"],
+});
+
+await commet.plans.addPrice({
   id: plan.id,
-  priceId: price.id,
-  overrides: [
-    { currency: "clp", price: 19900 }, // 19,900 CLP (no decimals)
+  billingInterval: "yearly",
+  price: 99000,
+  marketPrices: [
+    { marketGroupId: chile.id, currency: "clp", price: 19900 },
   ],
 });
 ```
@@ -150,9 +162,9 @@ Provider fees, settlement, and net values remain provider-owned. Do not synthesi
 
 ## Fallback Behavior
 
-If no regional price exists for the customer's detected currency, the system falls back to USD. The customer is charged the base USD price.
+If the request country has no Market override on the selected price, the system falls back to that price's base amount and currency.
 
-This means you can roll out regional pricing incrementally -- start with your largest non-USD markets and expand over time.
+This means you can roll out Market pricing incrementally -- start with your largest non-default markets and expand over time.
 
 ## Related
 

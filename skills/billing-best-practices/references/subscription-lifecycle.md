@@ -212,7 +212,7 @@ A canceled subscription can be reactivated through `subscriptions.reactivate()`.
 
 1. **Grant access on `active`, `trialing`, and `past_due`.** Don't cut off customers during grace periods.
 2. **Query current state for access.** Use webhooks for background reactions.
-3. **Currency is immutable after first payment.** Auto-detected from billing address at checkout. Plan accordingly.
+3. **Currency is immutable after first payment.** The selected price and request-country Market resolve it at checkout. Plan accordingly.
 4. **Trial conversion uses the exact trial-end instant.**
 
 ## Related
