@@ -156,7 +156,7 @@ Charge: $299 (full price, intro offer lost on plan change)
 They pay: $274.50
 ```
 
-Intro offers are lost when changing plans. The new plan starts at its regular price.
+Intro offers end on an immediate plan change. The new plan starts at its regular price unless the change explicitly applies a new Offer.
 
 ## Common Gotchas
 

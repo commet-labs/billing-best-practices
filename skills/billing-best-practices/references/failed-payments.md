@@ -106,9 +106,14 @@ The grace period is the time between the first failure and cancellation. During 
 ```typescript
 // Show a banner for past_due customers
 async function getSubscriptionBanner(customerId: string) {
-  const subscription = await commet.subscriptions.getActive({ customerId });
+  // getActive() returns only active or trialing subscriptions
+  const { data } = await commet.subscriptions.list({
+    customerId,
+    status: "past_due",
+  });
+  const subscription = data[0];
 
-  if (subscription?.status === "past_due") {
+  if (subscription) {
     const recovery = await commet.subscriptions.createRecoveryLink({
       id: subscription.id,
     });

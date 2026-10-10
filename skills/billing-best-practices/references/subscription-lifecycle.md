@@ -26,6 +26,7 @@ Every subscription moves through a set of states. Understanding these transition
    active ◄──────────┘
      │
      ├── payment fails ──► past_due ──► canceled (retries exhausted)
+     ├── pause ──► paused ──► resume ──► active / trialing
      └── customer cancels ──► canceled
 ```
 
@@ -33,14 +34,15 @@ Every subscription moves through a set of states. Understanding these transition
 |-------|--------|---------|---------------|
 | `draft` | No | None | `pending_payment` |
 | `pending_payment` | No | Awaiting payment | `trialing`, `active` |
-| `trialing` | Yes | No charge (usage accumulates) | `active`, `canceled` |
-| `active` | Yes | Normal billing | `past_due`, `canceled` |
+| `trialing` | Yes | No charge (usage accumulates) | `active`, `paused`, `canceled` |
+| `active` | Yes | Normal billing | `past_due`, `paused`, `canceled` |
 | `past_due` | Yes (grace period) | Retrying payment | `active`, `canceled` |
+| `paused` | No | No renewals | `active`, `trialing`, `canceled` |
 | `canceled` | No | None | New subscription only |
 
 ## One Active Subscription Per Customer
 
-A customer can only have one active subscription at a time. Treat a `409` from subscription creation as the authoritative conflict instead of reproducing a second state machine in application code.
+A customer can only have one open subscription at a time, including `pending_payment` and `paused`. Repeating creation for an unpaid `pending_payment` subscription with the same plan, price, and interval reuses it; any other open subscription returns `409`. Treat that conflict as authoritative instead of reproducing a second state machine in application code.
 
 ## Creation Flows
 
@@ -89,7 +91,7 @@ const subscription = await commet.subscriptions.create({
 });
 
 // Status: active immediately
-// No billing interval, no invoice, no payment method required
+// Monthly period rotation, no invoice, no payment method required
 ```
 
 ## Billing Period
@@ -98,12 +100,12 @@ Every paid subscription tracks its billing cycle:
 
 | Field | Purpose |
 |-------|---------|
-| `billingInterval` | `monthly`, `quarterly`, `yearly` (null for free plans) |
-| `billingDayOfMonth` | Day the cycle renews (1-28) |
-| `currentPeriodStart` | Start of current billing period |
-| `currentPeriodEnd` | End of current billing period |
-| `lastBilledAt` | When the last invoice was generated |
-| `currency` | Locked after first payment |
+| `billingInterval` | `weekly`, `monthly`, `quarterly`, `yearly`, or `one_time` |
+| `billingDayOfMonth` | Day of month derived from the billing anchor; informational, not the scheduler |
+| `currentPeriod` | `start`, `end`, and `daysRemaining` of the current period |
+| `nextBillingDate` | Next renewal instant, null when no renewal is scheduled |
+
+The subscription currency is locked after the first payment.
 
 ## Checking Subscription State
 
@@ -148,18 +150,21 @@ app.post("/webhooks/commet", async (req, res) => {
 ```
 
 ```typescript
-async function checkAccess(customerId: string): Promise<boolean> {
-  const subscription = await commet.subscriptions.getActive({ customerId });
+async function checkAccess(
+  customerId: string,
+  featureCode: string,
+): Promise<boolean> {
+  const access = await commet.featureAccess.get({
+    code: featureCode,
+    customerId,
+  });
 
-  if (!subscription) return false;
-
-  const hasAccess = ["trialing", "active", "past_due"].includes(
-    subscription.status
-  );
-
-  return hasAccess;
+  // Allowed for trialing, active, and past_due subscriptions
+  return access.allowed;
 }
 ```
+
+`subscriptions.getActive()` returns only an `active` or `trialing` subscription. Use `subscriptions.list({ customerId, status })` to find a `past_due` or `paused` one.
 
 **Why `past_due` grants access:** The customer is in a grace period while payment is retried. Cutting them off immediately increases churn -- most failed payments are recovered automatically.
 
@@ -180,7 +185,28 @@ await commet.subscriptions.uncancel({
 // Cancellation reversed, billing continues as normal
 ```
 
-Commet does not expose a pause/resume lifecycle. Do not present scheduled cancellation as a pause.
+A scheduled cancellation during a trial ends at trial end without converting to paid or charging. Do not present scheduled cancellation as a pause.
+
+## Pause and resume
+
+Pause a paid recurring subscription in `active` or `trialing` when the customer needs a break without canceling. Access stops while `paused`, and no renewal invoices are generated.
+
+```typescript
+// Pause when the current period ends, resume automatically after 30 days
+await commet.subscriptions.pause({
+  id: "sub_xxx",
+  mode: "period_end",
+  durationDays: 30, // null = paused until resumed manually
+});
+
+// Resume early
+await commet.subscriptions.resume({ id: "sub_xxx" });
+```
+
+- `immediate` stops access now and preserves the unused paid or trial time; resuming restores it without a charge.
+- `period_end` keeps access until the period ends and skips the next renewal; resuming charges a new period before access returns.
+
+A scheduled pause can be revoked before it takes effect, and the duration of a scheduled or active pause can be changed.
 
 ## Cancellation
 
@@ -212,7 +238,7 @@ A canceled subscription can be reactivated through `subscriptions.reactivate()`.
 
 1. **Grant access on `active`, `trialing`, and `past_due`.** Don't cut off customers during grace periods.
 2. **Query current state for access.** Use webhooks for background reactions.
-3. **Currency is immutable after first payment.** The selected price and request-country Market resolve it at checkout. Plan accordingly.
+3. **Currency is immutable after first payment.** The selected price and the checkout request country resolve it. Plan accordingly.
 4. **Trial conversion uses the exact trial-end instant.**
 
 ## Related

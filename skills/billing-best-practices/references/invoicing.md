@@ -11,6 +11,10 @@ Invoices are the financial record of every charge. Understanding when they're ge
 | Plan change | Customer upgrades mid-cycle | Credit for old plan + charge for new plan |
 | Credit purchase | Customer buys a credit pack | Credit pack amount |
 | Balance top-up | Customer adds funds to balance | Top-up amount |
+| Add-on activation | Customer activates an add-on mid-period | Prorated add-on amount |
+| Reactivation | Customer reactivates a canceled subscription | New period charge |
+| Resume | A period-end pause resumes | New period charge |
+| One-time payment | Standalone one-time charge | One-time amount |
 | Adjustment | Manual correction from dashboard | One-off charge or credit |
 
 ## Recurring Invoice
@@ -52,10 +56,13 @@ This means a recurring invoice can contain charges for two different periods:
 | `plan_base` | Base plan price charged in advance |
 | `feature_overage` | Usage beyond included amount (metered features) |
 | `feature_seats` | Seat charges (advance or true-up) |
+| `feature_quota` | Quota charges (advance or true-up) |
 | `addon_base` | Addon recurring charge |
 | `balance_overage` | Overage when balance model allows going negative |
-| `discount` | Active Offer or promo-code discount |
+| `discount` | Active Offer discount |
+| `promo_code_discount` | Promo-code discount |
 | `credit` | Customer credit applied to reduce total |
+| `one_time` | Standalone one-time payment |
 
 ## Billing Cycles
 

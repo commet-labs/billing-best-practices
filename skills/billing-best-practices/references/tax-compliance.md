@@ -61,12 +61,12 @@ import { Commet } from "@commet/node";
 
 const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
-// Tax is calculated automatically at checkout
-// based on the customer's billing address
+// Commet calculates tax at checkout only when the organization's payment
+// connection collects tax; otherwise no tax is charged. When it applies,
+// the rate comes from the billing address, not the request country.
 const subscription = await commet.subscriptions.create({
   customerId: "cus_abc123",
   planId: "pln_pro",
-  // Tax calculated from billing address country/state
 });
 ```
 
@@ -130,7 +130,7 @@ const customer = await commet.customers.create({
   taxDocument: "DE123456789",
 });
 
-// Invoices automatically apply reverse charge when VAT ID is valid
+// Where tax collection applies, a valid business tax ID can zero the tax under reverse charge
 ```
 
 ## Decision Framework

@@ -106,8 +106,8 @@ app.post("/webhooks/commet", async (req, res) => {
 ## Multi-Currency (If Applicable)
 
 - [ ] **Regional prices are set.** Round numbers in each currency, not just exchange rate conversions.
-- [ ] **Market resolution works.** Test request countries in Sandbox with the public Country override.
-- [ ] **Zero-decimal currencies are handled.** CLP and PYG don't use decimal places.
+- [ ] **Country price resolution works.** Test request countries in Sandbox with the public Country override, including any Market overrides.
+- [ ] **Zero-decimal currencies are handled.** CLP, PYG, JPY, and KRW don't use decimal places.
 - [ ] **Invoices show the correct currency.** All amounts in the subscription's currency.
 - [ ] **Proration works in non-USD currencies.** Verify the math with a non-USD test subscription.
 

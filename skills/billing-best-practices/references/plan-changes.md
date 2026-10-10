@@ -116,10 +116,10 @@ A move to a shorter interval is scheduled even when the target plan has a higher
 
 ## Intro Offers and Plan Changes
 
-Intro offers (discounted first N months) are lost when the customer changes plans. The new plan starts at its regular price, even if the customer hadn't finished their intro offer period.
+Intro offers (discounted first N months) end when the customer makes an immediate plan change. The new plan starts at its regular price unless the change explicitly applies a new Offer; a scheduled change cannot carry one.
 
 - Proration credit is based on what they actually paid (the intro price), not the list price
-- Automatic Introductory Offer eligibility is evaluated at creation; an active or past-due subscription in the organization disqualifies it
+- Automatic Introductory Offer eligibility is evaluated at creation; an active, past-due, or paused subscription in the organization disqualifies it
 
 ## Edge Cases
 
@@ -145,7 +145,7 @@ A canceled subscription can be reactivated through the reactivation operation. R
 
 ## Consumption Model Changes
 
-Plans within the same plan group must use the same consumption model (metered, credits, or balance). Switching consumption models requires moving to a different plan group, which means canceling the current subscription and creating a new one.
+Commet does not require plans in a group to share a consumption model (metered, credits, or balance). An immediate change resets the allocation owned by the new plan's model, and purchased credits are preserved. Before mixing models in one group, decide how customers should experience unused usage, credits, or balance when they switch.
 
 ## Plan Change Events
 

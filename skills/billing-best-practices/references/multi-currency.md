@@ -13,32 +13,27 @@ Checkout request arrives
 Country resolved (e.g., Brazil)
   |
   v
-Check: does the selected price have an override for Brazil's Market?
+Does the selected price have a Market override for Brazil?
   |
-  +--> Yes --> Charge in BRL at the configured price
+  +--> Yes --> Charge the Market's price and currency
   |
-  +--> No --> Charge in USD at the base price
+  +--> No --> Does the plan have regional pricing for Brazil (BRL)?
+                |
+                +--> Yes --> Charge in BRL at the regional price
+                |
+                +--> No --> Charge in USD at the base price
 ```
 
-In Commet Sandbox, the public **Country** control overrides request-country resolution so you can test another Market. Live checkout ignores that override. Billing address remains relevant to tax and payment processing, but it is not the Market selector.
+In Commet Sandbox, the public **Country** control overrides request-country resolution so you can test another country or Market. Live checkout ignores that override. Billing address remains relevant to tax and payment processing, but it does not select the price.
+
+Regional pricing is configured per currency and applies to every country that uses that currency. Each value is either derived from the USD value at the exchange rate you set or stored as a manual override. Markets are optional and available to Enterprise organizations: they group countries that need an explicit price and currency different from their regional default. A non-USD Market price requires regional pricing for that currency on the plan first.
 
 ```typescript
 import { Commet } from "@commet/node";
 
 const commet = new Commet({ apiKey: process.env.COMMET_API_KEY! });
 
-// Create reusable country Markets first
-const brazil = await commet.markets.create({
-  name: "Brazil",
-  countryCodes: ["BR"],
-});
-
-const argentina = await commet.markets.create({
-  name: "Argentina",
-  countryCodes: ["AR"],
-});
-
-// Create a plan, then add a base price with explicit Market overrides
+// Create a plan with a USD base price
 const plan = await commet.plans.create({
   name: "Pro",
   code: "pro",
@@ -48,9 +43,28 @@ const price = await commet.plans.addPrice({
   id: plan.id,
   billingInterval: "monthly",
   price: 9900, // $99.00 USD (base)
+  isDefault: true,
+});
+
+// Price every BRL country: a manual R$299.00 override, other values derived at the rate
+await commet.plans.setRegionalPricing({
+  id: plan.id,
+  currency: "brl",
+  exchangeRate: 5.4,
+  prices: [{ priceId: price.id, price: 29900 }],
+});
+
+// Optional: a reusable Market overrides price and currency for a country group
+const southernCone = await commet.markets.create({
+  name: "Southern Cone",
+  countryCodes: ["BO", "PY", "UY"],
+});
+
+await commet.plans.updatePrice({
+  id: plan.id,
+  priceId: price.id,
   marketPrices: [
-    { marketGroupId: brazil.id, currency: "brl", price: 29900 },
-    { marketGroupId: argentina.id, currency: "ars", price: 4990000 },
+    { marketGroupId: southernCone.id, currency: "usd", price: 3900 },
   ],
 });
 ```
@@ -70,10 +84,11 @@ If a customer moves countries and needs a different currency, they must cancel a
 
 The approach to regional pricing: define your canonical price in USD, then optionally set local prices for specific markets.
 
-| Currency | Code | Zero-Decimal | Common Markets |
-|----------|------|-------------|----------------|
+| Currency | Code | Zero-Decimal | Countries |
+|----------|------|-------------|-----------|
 | US Dollar | USD | No | United States, default |
-| Euro | EUR | No | EU countries |
+| Euro | EUR | No | Eurozone countries |
+| British Pound | GBP | No | United Kingdom |
 | Brazilian Real | BRL | No | Brazil |
 | Mexican Peso | MXN | No | Mexico |
 | Argentine Peso | ARS | No | Argentina |
@@ -84,6 +99,14 @@ The approach to regional pricing: define your canonical price in USD, then optio
 | Paraguayan Guarani | PYG | Yes | Paraguay |
 | Boliviano | BOB | No | Bolivia |
 | Canadian Dollar | CAD | No | Canada |
+| Japanese Yen | JPY | Yes | Japan |
+| Chinese Yuan | CNY | No | China |
+| South Korean Won | KRW | Yes | South Korea |
+| Hong Kong Dollar | HKD | No | Hong Kong |
+| Singapore Dollar | SGD | No | Singapore |
+| New Taiwan Dollar | TWD | No | Taiwan |
+| Indian Rupee | INR | No | India |
+| Thai Baht | THB | No | Thailand |
 
 ## Zero-Decimal Currencies
 
@@ -94,24 +117,19 @@ Most currencies use two decimal places ($99.99 = 9999 cents). Some don't use dec
 | USD | `10000` | 100.00 in cents |
 | CLP | `100` | No decimal places |
 | PYG | `100` | No decimal places |
+| JPY | `100` | No decimal places |
+| KRW | `100` | No decimal places |
 
 This matters for every calculation: proration, overage pricing, invoice totals. Your billing system must know which currencies are zero-decimal and handle them correctly. Failing to do this means charging 100x the intended amount (or 1/100th).
 
 ```typescript
 // Zero-decimal amounts are passed through as-is.
 // 19900 CLP means 19,900 CLP, not 199.00.
-const chile = await commet.markets.create({
-  name: "Chile",
-  countryCodes: ["CL"],
-});
-
-await commet.plans.addPrice({
+await commet.plans.setRegionalPricing({
   id: plan.id,
-  billingInterval: "yearly",
-  price: 99000,
-  marketPrices: [
-    { marketGroupId: chile.id, currency: "clp", price: 19900 },
-  ],
+  currency: "clp",
+  exchangeRate: 950,
+  prices: [{ priceId: price.id, price: 19900 }],
 });
 ```
 
@@ -135,7 +153,7 @@ Rate scale enables sub-cent pricing. If you charge $0.001 per API call, that's `
 
 ### Set Local Prices, Don't Convert
 
-Don't dynamically convert USD to local currencies using exchange rates. Instead, set deliberate local prices that reflect local purchasing power.
+Don't let exchange-rate conversion decide your customer-facing prices. Commet can derive regional values from a rate you set, but override the prices customers see with deliberate local amounts that reflect local purchasing power.
 
 **Why:**
 - Exchange rates fluctuate daily -- your prices shouldn't
@@ -162,9 +180,9 @@ Provider fees, settlement, and net values remain provider-owned. Do not synthesi
 
 ## Fallback Behavior
 
-If the request country has no Market override on the selected price, the system falls back to that price's base amount and currency.
+If the request country has no Market override on the selected price, the plan's regional price for that country applies. If the plan has no regional pricing for the country's currency, the system falls back to the base USD amount.
 
-This means you can roll out Market pricing incrementally -- start with your largest non-default markets and expand over time.
+This means you can roll out regional pricing incrementally -- start with your largest non-USD currencies and add Markets only where a country group needs a different price.
 
 ## Related
 
