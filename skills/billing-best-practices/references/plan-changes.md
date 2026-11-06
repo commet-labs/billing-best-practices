@@ -180,9 +180,16 @@ app.post("/webhooks/commet", async (req, res) => {
         event.data.effectiveAt
       );
       break;
+
+    case "subscription.version_changed":
+      // Same plan, newer version: features and prices may differ
+      await refreshCustomerFeatures(event.data.customerId);
+      break;
   }
 });
 ```
+
+A subscription can also move to a newer version of the same plan when you edit the plan and move existing subscribers. Its features and prices change without a plan change, so refresh cached entitlements on `subscription.version_changed` or query feature access directly. An endpoint receives this event only after it lists it.
 
 ## Related
 

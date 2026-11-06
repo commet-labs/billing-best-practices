@@ -17,16 +17,16 @@ Does the selected price have a Market override for Brazil?
   |
   +--> Yes --> Charge the Market's price and currency
   |
-  +--> No --> Does the plan have regional pricing for Brazil (BRL)?
+  +--> No --> Does the plan version have a price for Brazil?
                 |
-                +--> Yes --> Charge in BRL at the regional price
+                +--> Yes --> Charge that price in the country's currency (BRL)
                 |
                 +--> No --> Charge in USD at the base price
 ```
 
 In Commet Sandbox, the public **Country** control overrides request-country resolution so you can test another country or Market. Live checkout ignores that override. Billing address remains relevant to tax and payment processing, but it does not select the price.
 
-Regional pricing is configured per currency and applies to every country that uses that currency. Each value is either derived from the USD value at the exchange rate you set or stored as a manual override. Markets are optional and available to Enterprise organizations: they group countries that need an explicit price and currency different from their regional default. A non-USD Market price requires regional pricing for that currency on the plan first.
+Regional pricing configured for a currency applies to every country that uses that currency. A plan version can also price countries one by one, each with its own currency and price. Each value is either derived from the USD value at the exchange rate you set or stored as a manual override. Markets are optional and available to Enterprise organizations: they group countries that need an explicit price and currency different from their regional default. A non-USD Market price requires regional pricing for that currency on the plan first.
 
 ```typescript
 import { Commet } from "@commet/node";
@@ -78,7 +78,7 @@ Once a customer makes their first payment, `subscription.currency` is locked. It
 - Revenue tracking is predictable
 - Proration calculations are always in one currency
 
-If a customer moves countries and needs a different currency, they must cancel and create a new subscription.
+If a customer moves countries and needs a different currency, they must cancel and create a new subscription. Moving a subscription to a newer version of its plan never changes its currency either.
 
 ## Supported Currencies
 
@@ -165,7 +165,7 @@ Don't let exchange-rate conversion decide your customer-facing prices. Commet ca
 1. **Research local SaaS pricing.** What do comparable products charge in that market?
 2. **Use round numbers.** R$299, not R$287.43.
 3. **Account for payment method costs.** Some markets have higher transaction fees.
-4. **Review periodically.** Currency values shift over time. Update regional prices quarterly or when rates move significantly.
+4. **Review periodically.** Currency values shift over time. Update regional prices quarterly or when rates move significantly. In Commet, an update publishes a new plan version for new subscribers; existing subscriptions keep their version's prices until you move them.
 
 ## Non-USD Payment Processing
 
@@ -180,7 +180,7 @@ Provider fees, settlement, and net values remain provider-owned. Do not synthesi
 
 ## Fallback Behavior
 
-If the request country has no Market override on the selected price, the plan's regional price for that country applies. If the plan has no regional pricing for the country's currency, the system falls back to the base USD amount.
+If the request country has no Market override on the selected price, the plan version's price for that country applies. If the version does not price that country, the system falls back to the base USD amount.
 
 This means you can roll out regional pricing incrementally -- start with your largest non-USD currencies and add Markets only where a country group needs a different price.
 
