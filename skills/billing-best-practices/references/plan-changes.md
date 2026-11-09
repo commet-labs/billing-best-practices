@@ -52,7 +52,7 @@ await commet.subscriptions.changePlan({
 | When applied | At end of current period |
 | During current period | Customer keeps current plan and all features |
 | Credit | None -- they already paid and get to use it |
-| At renewal | Switches to new plan with new price |
+| At renewal | Switches to the new plan's current version and price |
 
 ```typescript
 const subscription = await commet.subscriptions.getActive({
@@ -141,7 +141,7 @@ If a customer upgrades and then immediately requests a downgrade, the downgrade 
 
 ### Reactivation After Cancellation
 
-A canceled subscription can be reactivated through the reactivation operation. Reactivation charges first and restores state only after payment succeeds.
+A canceled subscription can be reactivated through the reactivation operation. Reactivation charges first and restores state only after payment succeeds. It returns on the latest version of what was bought: the plan's current version for a plan code, the experiment's latest version for an experiment code while it runs, or the same version for a `planVersionId`. Active add-ons that version does not sell are deactivated.
 
 ## Consumption Model Changes
 
@@ -189,7 +189,9 @@ app.post("/webhooks/commet", async (req, res) => {
 });
 ```
 
-A subscription can also move to a newer version of the same plan when you edit the plan and move existing subscribers. Its features and prices change without a plan change, so refresh cached entitlements on `subscription.version_changed` or query feature access directly. An endpoint receives this event only after it lists it.
+A subscription can also move to a newer version of the same plan when you edit the plan and move existing subscribers; Commet never moves them on its own. Its features and prices change without a plan change, so refresh cached entitlements on `subscription.version_changed` or query feature access directly. A move now sends it at once; a move at renewal sends it at that renewal, whose invoice is already on the new version, and changes nothing in the current period before then.
+
+A pending move that will not happen sends `subscription.version_change_canceled` with a `reason`: `canceled_by_merchant` when you revoke it or cancel its plan move, `version_change_failed`, or the code of what the subscription no longer fits at renewal, such as `addon_unavailable`. Neither event is sent when the subscription ends or changes to another plan before the move applies: a plan change lands on the new plan's current version and is reported by the plan change events. An endpoint receives version events only after it lists them.
 
 ## Related
 

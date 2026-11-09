@@ -78,7 +78,7 @@ Once a customer makes their first payment, `subscription.currency` is locked. It
 - Revenue tracking is predictable
 - Proration calculations are always in one currency
 
-If a customer moves countries and needs a different currency, they must cancel and create a new subscription. Moving a subscription to a newer version of its plan never changes its currency either.
+If a customer moves countries and needs a different currency, they must cancel and create a new subscription. Moving a subscription to a newer version of its plan never changes its currency either: a version that does not sell that currency in the subscription's country refuses the move, and the reactivation of a canceled subscription, with `422 missing_regional_price`. A subscription that pays a Market price keeps paying it through version moves.
 
 ## Supported Currencies
 
